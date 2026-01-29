@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 
 interface PopoverProps {
   x: number;
@@ -9,26 +9,29 @@ interface PopoverProps {
 
 export const Popover: React.FC<PopoverProps> = ({ x, y, onClose, children }) => {
   const ref = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClose();
+        onCloseRef.current();
       }
     };
     const keyHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     // Delay to avoid immediate close from the click that opened it
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       document.addEventListener('mousedown', handler);
       document.addEventListener('keydown', keyHandler);
     }, 10);
     return () => {
+      clearTimeout(timer);
       document.removeEventListener('mousedown', handler);
       document.removeEventListener('keydown', keyHandler);
     };
-  }, [onClose]);
+  }, []);
 
   // Adjust position to keep popover in viewport
   useEffect(() => {
@@ -56,6 +59,8 @@ export const Popover: React.FC<PopoverProps> = ({ x, y, onClose, children }) => 
         borderRadius: 10,
         padding: 16,
         minWidth: 260,
+        maxHeight: '80vh',
+        overflowY: 'auto',
         boxShadow: '0 16px 48px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05)',
         animation: 'popoverIn 0.15s ease-out',
       }}

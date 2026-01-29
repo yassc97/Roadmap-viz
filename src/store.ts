@@ -90,7 +90,7 @@ export function useRoadmapStore() {
 
   const setState = useCallback((updater: (prev: RoadmapState) => RoadmapState, description?: string) => {
     setStateRaw(prev => {
-      if (description) {
+      if (description && description.length > 0) {
         const action: UndoAction = { description, previousState: JSON.parse(JSON.stringify(prev)) };
         undoStackRef.current.push(action);
         setUndoToast(action);

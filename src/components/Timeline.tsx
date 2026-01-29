@@ -30,11 +30,23 @@ export const Timeline: React.FC<TimelineProps> = ({
   onUpdateProject, onUpdateInitiative, onDeleteProject, onDeleteInitiative,
   onAddProject, collapsedInitiatives, onToggleCollapse,
 }) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  // Determine initial month from data
+  const getInitialMonth = () => {
+    if (projects.length > 0) {
+      const earliest = projects.reduce((min, p) => p.startDate < min ? p.startDate : min, projects[0].startDate);
+      return startOfMonth(parseISO(earliest));
+    }
+    return startOfMonth(new Date());
+  };
+
+  const [currentMonth, setCurrentMonth] = useState(getInitialMonth);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [projectPopover, setProjectPopover] = useState<{ project: Project; x: number; y: number } | null>(null);
+  const [projectPopover, setProjectPopover] = useState<{ projectId: string; x: number; y: number } | null>(null);
   const [initiativePopover, setInitiativePopover] = useState<{ initiative: Initiative; x: number; y: number } | null>(null);
-  const [dragState, setDragState] = useState<{
+  const [hoveredProject, setHoveredProject] = useState<string | null>(null);
+
+  // Drag state using refs to avoid stale closures
+  const dragRef = useRef<{
     projectId: string;
     type: 'move' | 'resize-start' | 'resize-end';
     startX: number;
@@ -43,7 +55,13 @@ export const Timeline: React.FC<TimelineProps> = ({
     origEnd: string;
     hasDragged: boolean;
   } | null>(null);
-  const [hoveredProject, setHoveredProject] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Keep refs to latest props to avoid stale closures in drag handlers
+  const onUpdateProjectRef = useRef(onUpdateProject);
+  onUpdateProjectRef.current = onUpdateProject;
+  const projectsRef = useRef(projects);
+  projectsRef.current = projects;
 
   // Show 3 months: prev, current, next for smooth scrolling
   const monthStart = startOfMonth(subMonths(currentMonth, 1));
@@ -80,20 +98,13 @@ export const Timeline: React.FC<TimelineProps> = ({
     return dayOffset * DAY_WIDTH;
   };
 
-  const xToDate = (x: number): string => {
-    const dayOffset = Math.round(x / DAY_WIDTH);
-    const date = new Date(monthStart);
-    date.setDate(date.getDate() + dayOffset);
-    return date.toISOString().split('T')[0];
-  };
-
   // Drag handlers
   const handleMouseDown = (e: React.MouseEvent, projectId: string, type: 'move' | 'resize-start' | 'resize-end') => {
     e.stopPropagation();
     e.preventDefault();
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
-    setDragState({
+    dragRef.current = {
       projectId,
       type,
       startX: e.clientX,
@@ -101,40 +112,43 @@ export const Timeline: React.FC<TimelineProps> = ({
       origStart: project.startDate,
       origEnd: project.endDate,
       hasDragged: false,
-    });
+    };
+    setIsDragging(true);
   };
 
   useEffect(() => {
-    if (!dragState) return;
+    if (!isDragging) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const dx = e.clientX - dragState.startX;
-      const dy = e.clientY - dragState.startY;
-      if (!dragState.hasDragged && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
-      if (!dragState.hasDragged) {
-        setDragState(prev => prev ? { ...prev, hasDragged: true } : null);
-      }
+      const drag = dragRef.current;
+      if (!drag) return;
+
+      const dx = e.clientX - drag.startX;
+      const dy = e.clientY - drag.startY;
+      if (!drag.hasDragged && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      drag.hasDragged = true;
+
       const daysDelta = Math.round(dx / DAY_WIDTH);
-      const origStart = parseISO(dragState.origStart);
-      const origEnd = parseISO(dragState.origEnd);
+      const origStart = parseISO(drag.origStart);
+      const origEnd = parseISO(drag.origEnd);
 
-      let newStart = dragState.origStart;
-      let newEnd = dragState.origEnd;
+      let newStart = drag.origStart;
+      let newEnd = drag.origEnd;
 
-      if (dragState.type === 'move') {
+      if (drag.type === 'move') {
         const s = new Date(origStart);
         s.setDate(s.getDate() + daysDelta);
         const en = new Date(origEnd);
         en.setDate(en.getDate() + daysDelta);
         newStart = s.toISOString().split('T')[0];
         newEnd = en.toISOString().split('T')[0];
-      } else if (dragState.type === 'resize-start') {
+      } else if (drag.type === 'resize-start') {
         const s = new Date(origStart);
         s.setDate(s.getDate() + daysDelta);
         if (s < origEnd) {
           newStart = s.toISOString().split('T')[0];
         }
-      } else if (dragState.type === 'resize-end') {
+      } else if (drag.type === 'resize-end') {
         const en = new Date(origEnd);
         en.setDate(en.getDate() + daysDelta);
         if (en > origStart) {
@@ -142,17 +156,18 @@ export const Timeline: React.FC<TimelineProps> = ({
         }
       }
 
-      onUpdateProject(dragState.projectId, { startDate: newStart, endDate: newEnd }, '');
+      // Use empty desc to avoid flooding undo stack during drag
+      onUpdateProjectRef.current(drag.projectId, { startDate: newStart, endDate: newEnd }, '');
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      if (!dragState.hasDragged && dragState.type === 'move') {
-        const project = projects.find(p => p.id === dragState.projectId);
-        if (project) {
-          setProjectPopover({ project, x: e.clientX, y: e.clientY });
-        }
+      const drag = dragRef.current;
+      if (drag && !drag.hasDragged && drag.type === 'move') {
+        // It was a click, not a drag — open popover
+        setProjectPopover({ projectId: drag.projectId, x: e.clientX, y: e.clientY });
       }
-      setDragState(null);
+      dragRef.current = null;
+      setIsDragging(false);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -161,11 +176,14 @@ export const Timeline: React.FC<TimelineProps> = ({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragState, onUpdateProject]);
+  }, [isDragging]);
 
   const navigateMonth = (dir: number) => {
     setCurrentMonth(prev => dir > 0 ? addMonths(prev, 1) : subMonths(prev, 1));
   };
+
+  // Find the current project for popover (always fresh from props)
+  const popoverProject = projectPopover ? projects.find(p => p.id === projectPopover.projectId) : null;
 
   // Render
   let yOffset = 0;
@@ -205,6 +223,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             style={{ cursor: 'pointer' }}
             onClick={() => onToggleCollapse(initiative.id)}
           >
+            <rect x={x} y={initiativeY} width={22} height={INITIATIVE_BAR_HEIGHT} fill="transparent" />
             <text
               x={x + 8}
               y={initiativeY + INITIATIVE_BAR_HEIGHT / 2 + 1}
@@ -232,14 +251,16 @@ export const Timeline: React.FC<TimelineProps> = ({
             {initiative.title}
           </text>
           {/* Avatars */}
-          <foreignObject
-            x={x + width - (assignees.length > 0 ? Math.min(assignees.length, 5) * 18 + 14 : 0)}
-            y={initiativeY + 4}
-            width={Math.min(assignees.length, 5) * 18 + 30}
-            height={INITIATIVE_BAR_HEIGHT - 8}
-          >
-            <AvatarStack people={assignees} size={20} />
-          </foreignObject>
+          {assignees.length > 0 && (
+            <foreignObject
+              x={x + width - (Math.min(assignees.length, 5) * 18 + 14)}
+              y={initiativeY + 4}
+              width={Math.min(assignees.length, 5) * 18 + 30}
+              height={INITIATIVE_BAR_HEIGHT - 8}
+            >
+              <AvatarStack people={assignees} size={20} />
+            </foreignObject>
+          )}
         </g>
       );
     } else {
@@ -304,14 +325,14 @@ export const Timeline: React.FC<TimelineProps> = ({
               rx={6}
               fill={barColor}
               opacity={isHovered ? 0.5 : 0.3}
-              style={{ cursor: dragState ? 'grabbing' : 'grab', transition: 'opacity 0.15s' }}
+              style={{ cursor: isDragging ? 'grabbing' : 'grab', transition: 'opacity 0.15s' }}
               onMouseDown={(e) => handleMouseDown(e, project.id, 'move')}
             />
             {/* Left resize handle */}
             <rect
               x={px}
               y={py}
-              width={6}
+              width={8}
               height={BAR_HEIGHT}
               rx={3}
               fill="transparent"
@@ -320,9 +341,9 @@ export const Timeline: React.FC<TimelineProps> = ({
             />
             {/* Right resize handle */}
             <rect
-              x={px + pWidth - 6}
+              x={px + pWidth - 8}
               y={py}
-              width={6}
+              width={8}
               height={BAR_HEIGHT}
               rx={3}
               fill="transparent"
@@ -330,7 +351,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               onMouseDown={(e) => handleMouseDown(e, project.id, 'resize-end')}
             />
             {/* Title */}
-            <foreignObject x={px + 8} y={py} width={Math.max(pWidth - 60, 30)} height={BAR_HEIGHT}>
+            <foreignObject x={px + 10} y={py} width={Math.max(pWidth - 60, 30)} height={BAR_HEIGHT}>
               <div
                 style={{
                   height: '100%',
@@ -361,7 +382,7 @@ export const Timeline: React.FC<TimelineProps> = ({
               </foreignObject>
             )}
             {/* Hover tooltip */}
-            {isHovered && !dragState && (
+            {isHovered && !isDragging && (
               <foreignObject x={px} y={py - 30} width={220} height={26}>
                 <div style={{
                   background: '#111827',
@@ -539,18 +560,15 @@ export const Timeline: React.FC<TimelineProps> = ({
       </div>
 
       {/* Popovers */}
-      {projectPopover && (
+      {projectPopover && popoverProject && (
         <ProjectPopover
-          project={projectPopover.project}
+          project={popoverProject}
           people={people}
           x={projectPopover.x}
           y={projectPopover.y}
           onClose={() => setProjectPopover(null)}
           onUpdate={(id, updates, desc) => {
             onUpdateProject(id, updates, desc);
-            // Update local popover state
-            const updated = { ...projectPopover.project, ...updates };
-            setProjectPopover({ ...projectPopover, project: updated });
           }}
           onDelete={(id) => {
             onDeleteProject(id);

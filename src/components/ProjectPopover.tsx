@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Project, Person } from '../types';
 import { PeoplePicker } from './PeoplePicker';
 import { Popover } from './Popover';
@@ -19,6 +19,13 @@ export const ProjectPopover: React.FC<ProjectPopoverProps> = ({
   const [title, setTitle] = useState(project.title);
   const [startDate, setStartDate] = useState(project.startDate);
   const [endDate, setEndDate] = useState(project.endDate);
+
+  // Sync local state when project prop changes
+  useEffect(() => {
+    setTitle(project.title);
+    setStartDate(project.startDate);
+    setEndDate(project.endDate);
+  }, [project.title, project.startDate, project.endDate]);
 
   const handleTitleBlur = () => {
     if (title !== project.title) {
