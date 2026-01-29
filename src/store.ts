@@ -5,12 +5,58 @@ import { v4 as uuid } from 'uuid';
 
 const STORAGE_KEY = 'roadmap-viz-data';
 
-function getDefaultState(): RoadmapState {
+function getSeedState(): RoadmapState {
+  const people = PLACEHOLDER_PEOPLE.map(p => ({ ...p, avatarUrl: undefined }));
+
+  // CRM Scope
+  const crmProjects: Project[] = [
+    { id: 'proj-crm-1', initiativeId: 'init-crm', title: 'All CRM properties', startDate: '2025-01-26', endDate: '2025-02-07', assigneeIds: ['p1', 'p2'] },
+    { id: 'proj-crm-2', initiativeId: 'init-crm', title: 'Import users views', startDate: '2025-02-03', endDate: '2025-02-07', assigneeIds: ['p3'] },
+    { id: 'proj-crm-3', initiativeId: 'init-crm', title: 'Deal view', startDate: '2025-02-10', endDate: '2025-02-14', assigneeIds: ['p3'] },
+    { id: 'proj-crm-4', initiativeId: 'init-crm', title: 'Task view', startDate: '2025-02-10', endDate: '2025-02-14', assigneeIds: ['p3'] },
+  ];
+
+  // Summaries Scope
+  const summariesProjects: Project[] = [
+    { id: 'proj-sum-1', initiativeId: 'init-sum', title: 'New Summaries Layout', startDate: '2025-02-03', endDate: '2025-02-07', assigneeIds: ['p4'] },
+    { id: 'proj-sum-2', initiativeId: 'init-sum', title: 'Summaries Tab', startDate: '2025-02-03', endDate: '2025-02-07', assigneeIds: ['p4'] },
+    { id: 'proj-sum-3', initiativeId: 'init-sum', title: 'Filtering and sorting on Summaries', startDate: '2025-02-10', endDate: '2025-02-14', assigneeIds: ['p4'] },
+    { id: 'proj-sum-4', initiativeId: 'init-sum', title: 'Searchable summaries Tab', startDate: '2025-02-10', endDate: '2025-02-14', assigneeIds: ['p5'] },
+    { id: 'proj-sum-5', initiativeId: 'init-sum', title: 'Pre-defined Templates', startDate: '2025-02-03', endDate: '2025-02-07', assigneeIds: ['p6'] },
+    { id: 'proj-sum-6', initiativeId: 'init-sum', title: 'Tasks and CRM Update', startDate: '2025-02-17', endDate: '2025-02-28', assigneeIds: ['p6'] },
+    { id: 'proj-sum-7', initiativeId: 'init-sum', title: 'Tags on summaries', startDate: '2025-02-17', endDate: '2025-02-21', assigneeIds: ['p6'] },
+  ];
+
+  // Calling Experience
+  const callingProjects: Project[] = [
+    { id: 'proj-call-1', initiativeId: 'init-call', title: 'Power Dialer', startDate: '2025-02-03', endDate: '2025-02-14', assigneeIds: ['p7'] },
+    { id: 'proj-call-2', initiativeId: 'init-call', title: 'Call tags', startDate: '2025-02-03', endDate: '2025-02-14', assigneeIds: ['p7'] },
+    { id: 'proj-call-3', initiativeId: 'init-call', title: 'PiP outbound calls', startDate: '2025-02-03', endDate: '2025-02-14', assigneeIds: ['p7'] },
+  ];
+
+  // General Improvements
+  const generalProjects: Project[] = [
+    { id: 'proj-gen-1', initiativeId: 'init-gen', title: 'Merged inbox inside Call tab/Inbox', startDate: '2025-02-03', endDate: '2025-02-07', assigneeIds: ['p4'] },
+    { id: 'proj-gen-2', initiativeId: 'init-gen', title: 'Admin right to choose line access', startDate: '2025-02-03', endDate: '2025-02-07', assigneeIds: ['p5'] },
+    { id: 'proj-gen-3', initiativeId: 'init-gen', title: 'Change ownership of a number', startDate: '2025-02-03', endDate: '2025-02-07', assigneeIds: ['p5'] },
+  ];
+
+  const initiatives: Initiative[] = [
+    { id: 'init-crm', title: 'CRM Scope', color: '#3b82f6', projectIds: crmProjects.map(p => p.id) },
+    { id: 'init-sum', title: 'Summaries Scope', color: '#8b5cf6', projectIds: summariesProjects.map(p => p.id) },
+    { id: 'init-call', title: 'Calling Experience', color: '#10b981', projectIds: callingProjects.map(p => p.id) },
+    { id: 'init-gen', title: 'General Improvements', color: '#f59e0b', projectIds: generalProjects.map(p => p.id) },
+  ];
+
   return {
-    initiatives: [],
-    projects: [],
-    people: PLACEHOLDER_PEOPLE.map(p => ({ ...p, avatarUrl: undefined })),
+    initiatives,
+    projects: [...crmProjects, ...summariesProjects, ...callingProjects, ...generalProjects],
+    people,
   };
+}
+
+function getDefaultState(): RoadmapState {
+  return getSeedState();
 }
 
 function loadState(): RoadmapState {
@@ -27,7 +73,10 @@ function loadState(): RoadmapState {
   } catch {
     // ignore
   }
-  return getDefaultState();
+  // First visit: seed with initial data and save immediately
+  const seed = getDefaultState();
+  saveState(seed);
+  return seed;
 }
 
 function saveState(state: RoadmapState) {

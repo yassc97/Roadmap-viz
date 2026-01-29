@@ -23,14 +23,14 @@ export const INITIATIVE_BAR_HEIGHT = 34;
 export const ROW_PADDING = 8;
 
 export const PLACEHOLDER_PEOPLE = [
-  { id: 'p1', name: 'Alice Martin', color: '#6366f1' },
-  { id: 'p2', name: 'Bob Chen', color: '#8b5cf6' },
-  { id: 'p3', name: 'Clara Dupont', color: '#3b82f6' },
-  { id: 'p4', name: 'David Kim', color: '#06b6d4' },
-  { id: 'p5', name: 'Emma Wilson', color: '#10b981' },
-  { id: 'p6', name: 'Félix Roy', color: '#f59e0b' },
-  { id: 'p7', name: 'Grace Liu', color: '#ef4444' },
-  { id: 'p8', name: 'Hugo Blanc', color: '#ec4899' },
-  { id: 'p9', name: 'Inès Moreau', color: '#f97316' },
-  { id: 'p10', name: 'James Park', color: '#14b8a6' },
+  { id: 'p1', name: 'Matteo', color: '#6366f1' },
+  { id: 'p2', name: 'Gonza', color: '#8b5cf6' },
+  { id: 'p3', name: 'Nicolas Moncars', color: '#3b82f6' },
+  { id: 'p4', name: 'Sergey', color: '#06b6d4' },
+  { id: 'p5', name: 'Franco', color: '#10b981' },
+  { id: 'p6', name: 'Léo', color: '#f59e0b' },
+  { id: 'p7', name: 'Fahyik', color: '#ef4444' },
+  { id: 'p8', name: 'Person 8', color: '#ec4899' },
+  { id: 'p9', name: 'Person 9', color: '#f97316' },
+  { id: 'p10', name: 'Person 10', color: '#14b8a6' },
 ];
