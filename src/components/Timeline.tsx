@@ -3,7 +3,7 @@ import {
   startOfMonth, endOfMonth, eachDayOfInterval, format, differenceInDays,
   addMonths, subMonths, isToday, parseISO, isSameMonth,
 } from 'date-fns';
-import { Initiative, Project, Person } from '../types';
+import type { Initiative, Project, Person } from '../types';
 import { DAY_WIDTH, BAR_HEIGHT, BAR_GAP, INITIATIVE_BAR_HEIGHT } from '../constants';
 import { AvatarStack } from './Avatar';
 import { ProjectPopover } from './ProjectPopover';

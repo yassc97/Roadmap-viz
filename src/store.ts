@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { RoadmapState, Initiative, Project, UndoAction } from './types';
+import type { RoadmapState, Initiative, Project, UndoAction } from './types';
 import { PLACEHOLDER_PEOPLE, INITIATIVE_COLORS } from './constants';
 import { v4 as uuid } from 'uuid';
 

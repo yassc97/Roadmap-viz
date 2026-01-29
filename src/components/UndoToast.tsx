@@ -1,5 +1,5 @@
 import React from 'react';
-import { UndoAction } from '../types';
+import type { UndoAction } from '../types';
 
 interface UndoToastProps {
   action: UndoAction;

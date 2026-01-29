@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Project, Person } from '../types';
+import type { Project, Person } from '../types';
 import { PeoplePicker } from './PeoplePicker';
 import { Popover } from './Popover';
 

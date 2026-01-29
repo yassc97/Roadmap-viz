@@ -1,5 +1,5 @@
 import React from 'react';
-import { Person } from '../types';
+import type { Person } from '../types';
 
 interface AvatarProps {
   person: Person;

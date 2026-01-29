@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRoadmapStore } from './store';
 import { Timeline } from './components/Timeline';
 import { UndoToast } from './components/UndoToast';

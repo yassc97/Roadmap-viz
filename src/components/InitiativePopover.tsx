@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Initiative } from '../types';
+import type { Initiative } from '../types';
 import { ColorPicker } from './ColorPicker';
 import { Popover } from './Popover';
 
