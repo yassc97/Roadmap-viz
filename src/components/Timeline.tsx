@@ -215,38 +215,43 @@ export const Timeline: React.FC<TimelineProps> = ({
             opacity={0.9}
             style={{ cursor: 'pointer', transition: 'opacity 0.15s' }}
             onClick={(e) => {
-              setInitiativePopover({ initiative, x: e.clientX, y: e.clientY });
+              // Check if click is not on the accordion toggle area
+              const rect = e.currentTarget.getBoundingClientRect();
+              const relativeX = e.clientX - rect.left;
+              if (relativeX > 32) {
+                setInitiativePopover({ initiative, x: e.clientX, y: e.clientY });
+              }
             }}
           />
           {/* Collapse toggle */}
           <g
             style={{ cursor: 'pointer' }}
-            onClick={() => onToggleCollapse(initiative.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleCollapse(initiative.id);
+            }}
           >
-            <rect x={x} y={initiativeY} width={22} height={INITIATIVE_BAR_HEIGHT} fill="transparent" />
+            <rect x={x} y={initiativeY} width={32} height={INITIATIVE_BAR_HEIGHT} fill="transparent" />
             <text
-              x={x + 8}
+              x={x + 12}
               y={initiativeY + INITIATIVE_BAR_HEIGHT / 2 + 1}
               fill="#fff"
-              fontSize={10}
+              fontSize={14}
               dominantBaseline="middle"
-              style={{ userSelect: 'none' }}
+              style={{ userSelect: 'none', pointerEvents: 'none' }}
             >
               {isCollapsed ? '▸' : '▾'}
             </text>
           </g>
           {/* Title */}
           <text
-            x={x + 22}
+            x={x + 32}
             y={initiativeY + INITIATIVE_BAR_HEIGHT / 2}
             fill="#fff"
             fontSize={13}
             fontWeight={600}
             dominantBaseline="middle"
-            style={{ cursor: 'pointer', userSelect: 'none' }}
-            onClick={(e) => {
-              setInitiativePopover({ initiative, x: e.clientX, y: e.clientY });
-            }}
+            style={{ cursor: 'pointer', userSelect: 'none', pointerEvents: 'none' }}
           >
             {initiative.title}
           </text>
@@ -332,26 +337,26 @@ export const Timeline: React.FC<TimelineProps> = ({
             <rect
               x={px}
               y={py}
-              width={8}
+              width={12}
               height={BAR_HEIGHT}
               rx={3}
-              fill="transparent"
-              style={{ cursor: 'col-resize' }}
+              fill={isHovered ? 'rgba(255,255,255,0.15)' : 'transparent'}
+              style={{ cursor: 'ew-resize', transition: 'fill 0.15s' }}
               onMouseDown={(e) => handleMouseDown(e, project.id, 'resize-start')}
             />
             {/* Right resize handle */}
             <rect
-              x={px + pWidth - 8}
+              x={px + pWidth - 12}
               y={py}
-              width={8}
+              width={12}
               height={BAR_HEIGHT}
               rx={3}
-              fill="transparent"
-              style={{ cursor: 'col-resize' }}
+              fill={isHovered ? 'rgba(255,255,255,0.15)' : 'transparent'}
+              style={{ cursor: 'ew-resize', transition: 'fill 0.15s' }}
               onMouseDown={(e) => handleMouseDown(e, project.id, 'resize-end')}
             />
             {/* Title */}
-            <foreignObject x={px + 10} y={py} width={Math.max(pWidth - 60, 30)} height={BAR_HEIGHT}>
+            <foreignObject x={px + 14} y={py} width={Math.max(pWidth - 70, 30)} height={BAR_HEIGHT}>
               <div
                 style={{
                   height: '100%',
@@ -373,7 +378,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             {/* Avatars */}
             {projectAssignees.length > 0 && pWidth > 80 && (
               <foreignObject
-                x={px + pWidth - (Math.min(projectAssignees.length, 3) * 16 + 16)}
+                x={px + pWidth - (Math.min(projectAssignees.length, 3) * 16 + 20)}
                 y={py + 3}
                 width={Math.min(projectAssignees.length, 3) * 16 + 20}
                 height={BAR_HEIGHT - 6}
