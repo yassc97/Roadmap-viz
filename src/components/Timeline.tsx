@@ -47,15 +47,19 @@ export const Timeline: React.FC<TimelineProps> = ({
 
   // Drag state using refs to avoid stale closures
   const dragRef = useRef<{
-    projectId: string;
+    projectId?: string;
+    initiativeId?: string;
     type: 'move' | 'resize-start' | 'resize-end';
     startX: number;
     startY: number;
     origStart: string;
     origEnd: string;
     hasDragged: boolean;
+    // For initiative dragging, store all project dates
+    initiativeProjects?: Array<{ id: string; origStart: string; origEnd: string }>;
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [hoveredInitiative, setHoveredInitiative] = useState<string | null>(null);
 
   // Keep refs to latest props to avoid stale closures in drag handlers
   const onUpdateProjectRef = useRef(onUpdateProject);
@@ -116,6 +120,32 @@ export const Timeline: React.FC<TimelineProps> = ({
     setIsDragging(true);
   };
 
+  const handleInitiativeMouseDown = (e: React.MouseEvent, initiativeId: string, type: 'move' | 'resize-start' | 'resize-end') => {
+    e.stopPropagation();
+    e.preventDefault();
+    const range = getInitiativeDateRange(initiativeId);
+    if (!range) return;
+
+    const initProjects = projects.filter(p => p.initiativeId === initiativeId);
+    if (initProjects.length === 0) return;
+
+    dragRef.current = {
+      initiativeId,
+      type,
+      startX: e.clientX,
+      startY: e.clientY,
+      origStart: range.startDate,
+      origEnd: range.endDate,
+      hasDragged: false,
+      initiativeProjects: initProjects.map(p => ({
+        id: p.id,
+        origStart: p.startDate,
+        origEnd: p.endDate,
+      })),
+    };
+    setIsDragging(true);
+  };
+
   useEffect(() => {
     if (!isDragging) return;
 
@@ -129,42 +159,97 @@ export const Timeline: React.FC<TimelineProps> = ({
       drag.hasDragged = true;
 
       const daysDelta = Math.round(dx / DAY_WIDTH);
-      const origStart = parseISO(drag.origStart);
-      const origEnd = parseISO(drag.origEnd);
 
-      let newStart = drag.origStart;
-      let newEnd = drag.origEnd;
+      if (drag.initiativeId && drag.initiativeProjects) {
+        // Dragging an initiative - update all its projects
+        if (drag.type === 'move') {
+          // Move all projects by the same delta
+          drag.initiativeProjects.forEach(proj => {
+            const origStart = parseISO(proj.origStart);
+            const origEnd = parseISO(proj.origEnd);
+            const s = new Date(origStart);
+            s.setDate(s.getDate() + daysDelta);
+            const en = new Date(origEnd);
+            en.setDate(en.getDate() + daysDelta);
+            const newStart = s.toISOString().split('T')[0];
+            const newEnd = en.toISOString().split('T')[0];
+            onUpdateProjectRef.current(proj.id, { startDate: newStart, endDate: newEnd }, '');
+          });
+        } else if (drag.type === 'resize-start') {
+          // Find the earliest project and resize it
+          const sortedProjects = [...drag.initiativeProjects].sort((a, b) => a.origStart.localeCompare(b.origStart));
+          if (sortedProjects.length > 0) {
+            const earliestProj = sortedProjects[0];
+            const origStart = parseISO(earliestProj.origStart);
+            const origEnd = parseISO(earliestProj.origEnd);
+            const s = new Date(origStart);
+            s.setDate(s.getDate() + daysDelta);
+            if (s < origEnd) {
+              const newStart = s.toISOString().split('T')[0];
+              onUpdateProjectRef.current(earliestProj.id, { startDate: newStart }, '');
+            }
+          }
+        } else if (drag.type === 'resize-end') {
+          // Find the latest project and resize it
+          const sortedProjects = [...drag.initiativeProjects].sort((a, b) => b.origEnd.localeCompare(a.origEnd));
+          if (sortedProjects.length > 0) {
+            const latestProj = sortedProjects[0];
+            const origStart = parseISO(latestProj.origStart);
+            const origEnd = parseISO(latestProj.origEnd);
+            const en = new Date(origEnd);
+            en.setDate(en.getDate() + daysDelta);
+            if (en > origStart) {
+              const newEnd = en.toISOString().split('T')[0];
+              onUpdateProjectRef.current(latestProj.id, { endDate: newEnd }, '');
+            }
+          }
+        }
+      } else if (drag.projectId) {
+        // Dragging a project
+        const origStart = parseISO(drag.origStart);
+        const origEnd = parseISO(drag.origEnd);
 
-      if (drag.type === 'move') {
-        const s = new Date(origStart);
-        s.setDate(s.getDate() + daysDelta);
-        const en = new Date(origEnd);
-        en.setDate(en.getDate() + daysDelta);
-        newStart = s.toISOString().split('T')[0];
-        newEnd = en.toISOString().split('T')[0];
-      } else if (drag.type === 'resize-start') {
-        const s = new Date(origStart);
-        s.setDate(s.getDate() + daysDelta);
-        if (s < origEnd) {
+        let newStart = drag.origStart;
+        let newEnd = drag.origEnd;
+
+        if (drag.type === 'move') {
+          const s = new Date(origStart);
+          s.setDate(s.getDate() + daysDelta);
+          const en = new Date(origEnd);
+          en.setDate(en.getDate() + daysDelta);
           newStart = s.toISOString().split('T')[0];
-        }
-      } else if (drag.type === 'resize-end') {
-        const en = new Date(origEnd);
-        en.setDate(en.getDate() + daysDelta);
-        if (en > origStart) {
           newEnd = en.toISOString().split('T')[0];
+        } else if (drag.type === 'resize-start') {
+          const s = new Date(origStart);
+          s.setDate(s.getDate() + daysDelta);
+          if (s < origEnd) {
+            newStart = s.toISOString().split('T')[0];
+          }
+        } else if (drag.type === 'resize-end') {
+          const en = new Date(origEnd);
+          en.setDate(en.getDate() + daysDelta);
+          if (en > origStart) {
+            newEnd = en.toISOString().split('T')[0];
+          }
         }
-      }
 
-      // Use empty desc to avoid flooding undo stack during drag
-      onUpdateProjectRef.current(drag.projectId, { startDate: newStart, endDate: newEnd }, '');
+        // Use empty desc to avoid flooding undo stack during drag
+        onUpdateProjectRef.current(drag.projectId, { startDate: newStart, endDate: newEnd }, '');
+      }
     };
 
     const handleMouseUp = (e: MouseEvent) => {
       const drag = dragRef.current;
       if (drag && !drag.hasDragged && drag.type === 'move') {
         // It was a click, not a drag — open popover
-        setProjectPopover({ projectId: drag.projectId, x: e.clientX, y: e.clientY });
+        if (drag.projectId) {
+          setProjectPopover({ projectId: drag.projectId, x: e.clientX, y: e.clientY });
+        } else if (drag.initiativeId) {
+          const initiative = initiatives.find(i => i.id === drag.initiativeId);
+          if (initiative) {
+            setInitiativePopover({ initiative, x: e.clientX, y: e.clientY });
+          }
+        }
       }
       dragRef.current = null;
       setIsDragging(false);
@@ -202,9 +287,14 @@ export const Timeline: React.FC<TimelineProps> = ({
     if (range) {
       const x = dateToX(range.startDate);
       const width = Math.max((differenceInDays(parseISO(range.endDate), parseISO(range.startDate)) + 1) * DAY_WIDTH, DAY_WIDTH);
+      const isHovered = hoveredInitiative === initiative.id;
 
       rows.push(
-        <g key={`init-${initiative.id}`}>
+        <g key={`init-${initiative.id}`}
+          onMouseEnter={() => setHoveredInitiative(initiative.id)}
+          onMouseLeave={() => setHoveredInitiative(null)}
+        >
+          {/* Background bar */}
           <rect
             x={x}
             y={initiativeY}
@@ -212,16 +302,8 @@ export const Timeline: React.FC<TimelineProps> = ({
             height={INITIATIVE_BAR_HEIGHT}
             rx={8}
             fill={initiative.color}
-            opacity={0.9}
-            style={{ cursor: 'pointer', transition: 'opacity 0.15s' }}
-            onClick={(e) => {
-              // Check if click is not on the accordion toggle area
-              const rect = e.currentTarget.getBoundingClientRect();
-              const relativeX = e.clientX - rect.left;
-              if (relativeX > 32) {
-                setInitiativePopover({ initiative, x: e.clientX, y: e.clientY });
-              }
-            }}
+            opacity={isHovered ? 0.95 : 0.9}
+            style={{ transition: 'opacity 0.15s' }}
           />
           {/* Collapse toggle */}
           <g
@@ -243,28 +325,81 @@ export const Timeline: React.FC<TimelineProps> = ({
               {isCollapsed ? '▸' : '▾'}
             </text>
           </g>
+          {/* Draggable center area */}
+          <rect
+            x={x + 32}
+            y={initiativeY}
+            width={Math.max(width - 64, 1)}
+            height={INITIATIVE_BAR_HEIGHT}
+            fill="transparent"
+            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+            onMouseDown={(e) => handleInitiativeMouseDown(e, initiative.id, 'move')}
+          />
           {/* Title */}
           <text
-            x={x + 32}
+            x={x + 40}
             y={initiativeY + INITIATIVE_BAR_HEIGHT / 2}
             fill="#fff"
             fontSize={13}
             fontWeight={600}
             dominantBaseline="middle"
-            style={{ cursor: 'pointer', userSelect: 'none', pointerEvents: 'none' }}
+            style={{ userSelect: 'none', pointerEvents: 'none' }}
           >
             {initiative.title}
           </text>
           {/* Avatars */}
           {assignees.length > 0 && (
             <foreignObject
-              x={x + width - (Math.min(assignees.length, 5) * 18 + 14)}
+              x={x + width - (Math.min(assignees.length, 5) * 18 + 18)}
               y={initiativeY + 4}
               width={Math.min(assignees.length, 5) * 18 + 30}
               height={INITIATIVE_BAR_HEIGHT - 8}
+              style={{ pointerEvents: 'none' }}
             >
               <AvatarStack people={assignees} size={20} />
             </foreignObject>
+          )}
+          {/* Left resize handle */}
+          <rect
+            x={x - 2}
+            y={initiativeY}
+            width={34}
+            height={INITIATIVE_BAR_HEIGHT}
+            rx={8}
+            fill="transparent"
+            style={{ cursor: 'ew-resize' }}
+            onMouseDown={(e) => handleInitiativeMouseDown(e, initiative.id, 'resize-start')}
+          />
+          {isHovered && (
+            <rect
+              x={x}
+              y={initiativeY}
+              width={3}
+              height={INITIATIVE_BAR_HEIGHT}
+              fill="rgba(255,255,255,0.4)"
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
+          {/* Right resize handle */}
+          <rect
+            x={x + width - 32}
+            y={initiativeY}
+            width={34}
+            height={INITIATIVE_BAR_HEIGHT}
+            rx={8}
+            fill="transparent"
+            style={{ cursor: 'ew-resize' }}
+            onMouseDown={(e) => handleInitiativeMouseDown(e, initiative.id, 'resize-end')}
+          />
+          {isHovered && (
+            <rect
+              x={x + width - 3}
+              y={initiativeY}
+              width={3}
+              height={INITIATIVE_BAR_HEIGHT}
+              fill="rgba(255,255,255,0.4)"
+              style={{ pointerEvents: 'none' }}
+            />
           )}
         </g>
       );
@@ -321,7 +456,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             onMouseEnter={() => setHoveredProject(project.id)}
             onMouseLeave={() => setHoveredProject(null)}
           >
-            {/* Main bar */}
+            {/* Main bar (background) */}
             <rect
               x={px}
               y={py}
@@ -330,30 +465,17 @@ export const Timeline: React.FC<TimelineProps> = ({
               rx={6}
               fill={barColor}
               opacity={isHovered ? 0.5 : 0.3}
-              style={{ cursor: isDragging ? 'grabbing' : 'grab', transition: 'opacity 0.15s' }}
+              style={{ transition: 'opacity 0.15s' }}
+            />
+            {/* Draggable center area */}
+            <rect
+              x={px + 12}
+              y={py}
+              width={Math.max(pWidth - 24, 1)}
+              height={BAR_HEIGHT}
+              fill="transparent"
+              style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
               onMouseDown={(e) => handleMouseDown(e, project.id, 'move')}
-            />
-            {/* Left resize handle */}
-            <rect
-              x={px}
-              y={py}
-              width={12}
-              height={BAR_HEIGHT}
-              rx={3}
-              fill={isHovered ? 'rgba(255,255,255,0.15)' : 'transparent'}
-              style={{ cursor: 'ew-resize', transition: 'fill 0.15s' }}
-              onMouseDown={(e) => handleMouseDown(e, project.id, 'resize-start')}
-            />
-            {/* Right resize handle */}
-            <rect
-              x={px + pWidth - 12}
-              y={py}
-              width={12}
-              height={BAR_HEIGHT}
-              rx={3}
-              fill={isHovered ? 'rgba(255,255,255,0.15)' : 'transparent'}
-              style={{ cursor: 'ew-resize', transition: 'fill 0.15s' }}
-              onMouseDown={(e) => handleMouseDown(e, project.id, 'resize-end')}
             />
             {/* Title */}
             <foreignObject x={px + 14} y={py} width={Math.max(pWidth - 70, 30)} height={BAR_HEIGHT}>
@@ -382,10 +504,37 @@ export const Timeline: React.FC<TimelineProps> = ({
                 y={py + 3}
                 width={Math.min(projectAssignees.length, 3) * 16 + 20}
                 height={BAR_HEIGHT - 6}
+                style={{ pointerEvents: 'none' }}
               >
                 <AvatarStack people={projectAssignees} size={18} max={3} />
               </foreignObject>
             )}
+            {/* Left resize handle - drawn on top */}
+            <rect
+              x={px - 2}
+              y={py}
+              width={14}
+              height={BAR_HEIGHT}
+              rx={3}
+              fill={isHovered ? 'rgba(255,255,255,0.2)' : 'transparent'}
+              stroke={isHovered ? 'rgba(255,255,255,0.3)' : 'transparent'}
+              strokeWidth={1}
+              style={{ cursor: 'ew-resize', transition: 'fill 0.15s, stroke 0.15s' }}
+              onMouseDown={(e) => handleMouseDown(e, project.id, 'resize-start')}
+            />
+            {/* Right resize handle - drawn on top */}
+            <rect
+              x={px + pWidth - 12}
+              y={py}
+              width={14}
+              height={BAR_HEIGHT}
+              rx={3}
+              fill={isHovered ? 'rgba(255,255,255,0.2)' : 'transparent'}
+              stroke={isHovered ? 'rgba(255,255,255,0.3)' : 'transparent'}
+              strokeWidth={1}
+              style={{ cursor: 'ew-resize', transition: 'fill 0.15s, stroke 0.15s' }}
+              onMouseDown={(e) => handleMouseDown(e, project.id, 'resize-end')}
+            />
             {/* Hover tooltip */}
             {isHovered && !isDragging && (
               <foreignObject x={px} y={py - 30} width={220} height={26}>
@@ -398,6 +547,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                   color: '#9ca3af',
                   whiteSpace: 'nowrap',
                   width: 'fit-content',
+                  pointerEvents: 'none',
                 }}>
                   {format(parseISO(project.startDate), 'MMM d')} → {format(parseISO(project.endDate), 'MMM d')}
                 </div>
