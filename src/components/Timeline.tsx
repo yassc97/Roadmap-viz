@@ -305,31 +305,11 @@ export const Timeline: React.FC<TimelineProps> = ({
             opacity={isHovered ? 0.95 : 0.9}
             style={{ transition: 'opacity 0.15s' }}
           />
-          {/* Collapse toggle */}
-          <g
-            style={{ cursor: 'pointer' }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleCollapse(initiative.id);
-            }}
-          >
-            <rect x={x} y={initiativeY} width={32} height={INITIATIVE_BAR_HEIGHT} fill="transparent" />
-            <text
-              x={x + 12}
-              y={initiativeY + INITIATIVE_BAR_HEIGHT / 2 + 1}
-              fill="#fff"
-              fontSize={14}
-              dominantBaseline="middle"
-              style={{ userSelect: 'none', pointerEvents: 'none' }}
-            >
-              {isCollapsed ? '▸' : '▾'}
-            </text>
-          </g>
-          {/* Draggable center area */}
+          {/* Draggable center area - between toggle and right edge */}
           <rect
-            x={x + 32}
+            x={x + 40}
             y={initiativeY}
-            width={Math.max(width - 64, 1)}
+            width={Math.max(width - 70, 1)}
             height={INITIATIVE_BAR_HEIGHT}
             fill="transparent"
             style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
@@ -337,7 +317,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           />
           {/* Title */}
           <text
-            x={x + 40}
+            x={x + 42}
             y={initiativeY + INITIATIVE_BAR_HEIGHT / 2}
             fill="#fff"
             fontSize={13}
@@ -350,7 +330,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           {/* Avatars */}
           {assignees.length > 0 && (
             <foreignObject
-              x={x + width - (Math.min(assignees.length, 5) * 18 + 18)}
+              x={x + width - (Math.min(assignees.length, 5) * 18 + 20)}
               y={initiativeY + 4}
               width={Math.min(assignees.length, 5) * 18 + 30}
               height={INITIATIVE_BAR_HEIGHT - 8}
@@ -359,16 +339,19 @@ export const Timeline: React.FC<TimelineProps> = ({
               <AvatarStack people={assignees} size={20} />
             </foreignObject>
           )}
-          {/* Left resize handle */}
+          {/* Left resize handle - only covers leftmost 16px, before toggle */}
           <rect
-            x={x - 2}
+            x={x}
             y={initiativeY}
-            width={34}
+            width={16}
             height={INITIATIVE_BAR_HEIGHT}
             rx={8}
             fill="transparent"
             style={{ cursor: 'ew-resize' }}
-            onMouseDown={(e) => handleInitiativeMouseDown(e, initiative.id, 'resize-start')}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              handleInitiativeMouseDown(e, initiative.id, 'resize-start');
+            }}
           />
           {isHovered && (
             <rect
@@ -382,14 +365,17 @@ export const Timeline: React.FC<TimelineProps> = ({
           )}
           {/* Right resize handle */}
           <rect
-            x={x + width - 32}
+            x={x + width - 16}
             y={initiativeY}
-            width={34}
+            width={16}
             height={INITIATIVE_BAR_HEIGHT}
             rx={8}
             fill="transparent"
             style={{ cursor: 'ew-resize' }}
-            onMouseDown={(e) => handleInitiativeMouseDown(e, initiative.id, 'resize-end')}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              handleInitiativeMouseDown(e, initiative.id, 'resize-end');
+            }}
           />
           {isHovered && (
             <rect
@@ -401,6 +387,26 @@ export const Timeline: React.FC<TimelineProps> = ({
               style={{ pointerEvents: 'none' }}
             />
           )}
+          {/* Collapse toggle - drawn last so it's on top */}
+          <g
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleCollapse(initiative.id);
+            }}
+          >
+            <rect x={x + 16} y={initiativeY} width={24} height={INITIATIVE_BAR_HEIGHT} fill="transparent" />
+            <text
+              x={x + 24}
+              y={initiativeY + INITIATIVE_BAR_HEIGHT / 2 + 1}
+              fill="#fff"
+              fontSize={14}
+              dominantBaseline="middle"
+              style={{ userSelect: 'none', pointerEvents: 'none' }}
+            >
+              {isCollapsed ? '▸' : '▾'}
+            </text>
+          </g>
         </g>
       );
     } else {
